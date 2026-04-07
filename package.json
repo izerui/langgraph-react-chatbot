@@ -1,6 +1,6 @@
 {
   "name": "langgraph-react-chatbot",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
   "type": "module",
   "main": "./dist-lib/index.js",
@@ -27,7 +27,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "build:lib": "vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json"
+    "build:lib": "vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json",
+    "check:lib": "node ./scripts/check-lib.mjs",
+    "prepublishOnly": "npm version patch --no-git-tag-version && pnpm check:lib"
   },
   "dependencies": {
     "@langchain/langgraph-sdk": "^1.6.5",

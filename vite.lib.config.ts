@@ -13,18 +13,40 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist-lib',
+    emptyOutDir: true,
+    sourcemap: true,
+    cssCodeSplit: true,
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
       formats: ['es'],
-      fileName: 'index'
+      fileName: () => 'index.js'
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'react/jsx-runtime'],
+      external: [
+        'react',
+        'react-dom',
+        'react/jsx-runtime',
+        '@langchain/langgraph-sdk',
+        '@radix-ui/react-collapsible',
+        '@radix-ui/react-dropdown-menu',
+        '@radix-ui/react-scroll-area',
+        '@radix-ui/react-tooltip',
+        'class-variance-authority',
+        'clsx',
+        'lucide-react',
+        'nanoid',
+        'streamdown',
+        '@streamdown/code',
+        '@streamdown/mermaid',
+        'tailwind-merge'
+      ],
       output: {
-        globals: {
-          react: 'React',
-          'react-dom': 'ReactDOM'
-        }
+        entryFileNames: 'index.js',
+        chunkFileNames: 'chunks/[name]-[hash].js',
+        assetFileNames: (assetInfo) =>
+          assetInfo.name?.endsWith('.css')
+            ? 'components/ai-bot/chatbot.css'
+            : 'assets/[name]-[hash][extname]'
       }
     }
   }

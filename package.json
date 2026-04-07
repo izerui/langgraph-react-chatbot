@@ -1,0 +1,65 @@
+{
+  "name": "langgraph-react-chatbot",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "main": "./dist-lib/index.js",
+  "module": "./dist-lib/index.js",
+  "types": "./dist-lib/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/izerui/langgraph-react-chatbot.git"
+  },
+  "license": "MIT",
+  "files": [
+    "dist-lib"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist-lib/index.d.ts",
+      "import": "./dist-lib/index.js"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "build:lib": "vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json"
+  },
+  "dependencies": {
+    "@langchain/langgraph-sdk": "^1.6.5",
+    "@radix-ui/react-collapsible": "^1.1.11",
+    "@radix-ui/react-dropdown-menu": "^2.1.14",
+    "@radix-ui/react-scroll-area": "^1.2.8",
+    "@radix-ui/react-tooltip": "^1.1.12",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.577.0",
+    "nanoid": "^5.1.6",
+    "streamdown": "^2.5.0",
+    "@streamdown/code": "^1.1.1",
+    "@streamdown/mermaid": "^1.0.2",
+    "tailwind-merge": "^3.5.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "@types/node": "^24.12.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.4.27",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.2.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.4",
+    "vite-plugin-lib-inject-css": "^2.2.2"
+  }
+}

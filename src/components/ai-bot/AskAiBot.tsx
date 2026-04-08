@@ -227,6 +227,13 @@ const AskAiBot = forwardRef<AskAiBotPublicApi, AskAiBotProps>(
         addAttachments: (attachments) => {
           chatBotRef.current?.addAttachments(attachments)
         },
+        resetThread: async () => {
+          if (!isExpanded) {
+            setIsExpanded(true)
+            await new Promise((resolve) => setTimeout(resolve, 0))
+          }
+          await chatBotRef.current?.resetThread()
+        },
         sendMessage: async () => {
           if (!isExpanded) {
             setIsExpanded(true)

@@ -4,9 +4,11 @@ import React, {
   useEffect,
   useImperativeHandle,
   useMemo,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { nanoid } from 'nanoid'
 import type { ChatStatus } from './lib/message-types'
 import type {
@@ -39,6 +41,7 @@ import {
   Loader2Icon,
   CornerDownLeftIcon,
   PaperclipIcon,
+  Trash2Icon,
 } from 'lucide-react'
 
 // ============== Types ==============
@@ -49,10 +52,13 @@ interface ChatInputProps {
   models: ModelInfo[]
   suggestions: string[]
   useWebSearch: boolean
+  canResetThread?: boolean
+  isResettingThread?: boolean
   allowModelSwitch?: boolean
   modelSelectorOpen: boolean
   onSubmit: (message: PromptInputMessage) => void
   onStop: () => void
+  onResetThread: () => void
   onSelectSuggestion: (suggestion: string) => void
   onCurrentModelChange: (model: ModelInfo) => void
   onUseWebSearchChange: (value: boolean) => void
@@ -93,6 +99,68 @@ const styles: Record<string, React.CSSProperties> = {
     width: 'calc(100% - 24px)',
     margin: '4px 12px 0',
     borderTop: '1px solid var(--ai-border-subtle)',
+  },
+  resetPopover: {
+    position: 'absolute',
+    zIndex: 20,
+    width: '280px',
+    transform: 'translateY(-100%)',
+    padding: '14px',
+    border: '1px solid var(--ai-layer-border)',
+    borderRadius: '14px',
+    background: 'var(--ai-layer-bg)',
+    color: 'var(--ai-layer-text)',
+    boxShadow: 'var(--ai-layer-shadow)',
+  },
+  resetArrow: {
+    position: 'absolute',
+    bottom: '-7px',
+    width: '14px',
+    height: '14px',
+    background: 'var(--ai-layer-bg)',
+    borderRight: '1px solid var(--ai-layer-border)',
+    borderBottom: '1px solid var(--ai-layer-border)',
+    transform: 'rotate(45deg)',
+  },
+  resetTitle: {
+    margin: 0,
+    fontSize: '13px',
+    fontWeight: 600,
+    lineHeight: 1.35,
+    color: 'var(--foreground)',
+  },
+  resetDescription: {
+    margin: '6px 0 0',
+    fontSize: '12px',
+    lineHeight: 1.5,
+    color: 'var(--ai-layer-heading)',
+  },
+  resetActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '8px',
+    marginTop: '12px',
+  },
+  resetButton: {
+    minWidth: '64px',
+    height: '30px',
+    padding: '0 12px',
+    borderRadius: '999px',
+    fontSize: '12px',
+    fontWeight: 500,
+    transition: 'all 0.18s ease',
+    cursor: 'pointer',
+  },
+  resetButtonSecondary: {
+    border: '1px solid transparent',
+    background: 'transparent',
+    color: 'var(--ai-control-muted)',
+  },
+  resetButtonDanger: {
+    border: '1px solid transparent',
+    background: 'var(--destructive)',
+    color: '#fff',
+    boxShadow: '0 8px 18px color-mix(in srgb, var(--destructive) 22%, transparent)',
   },
 }
 
@@ -135,10 +203,13 @@ const ChatInput = forwardRef<AiBotInputApi, ChatInputProps>(function ChatInput(p
     currentModel,
     models,
     suggestions,
+    canResetThread = false,
+    isResettingThread = false,
     allowModelSwitch = true,
     modelSelectorOpen,
     onSubmit,
     onStop,
+    onResetThread,
     onSelectSuggestion,
     onCurrentModelChange,
     onModelSelectorOpenChange,
@@ -150,8 +221,12 @@ const ChatInput = forwardRef<AiBotInputApi, ChatInputProps>(function ChatInput(p
   const [files, setFiles] = useState<AttachmentFile[]>([])
   const [isLoading] = useState(false)
   const [isComposing, setIsComposing] = useState(false)
+  const [isConfirmingReset, setIsConfirmingReset] = useState(false)
+  const [resetPopoverStyle, setResetPopoverStyle] = useState<React.CSSProperties>({})
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const filesRef = useRef(files)
+  const resetTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const resetConfirmRef = useRef<HTMLDivElement | null>(null)
   const portalHost = usePortalHost()
 
   // Keep filesRef in sync
@@ -267,7 +342,14 @@ const ChatInput = forwardRef<AiBotInputApi, ChatInputProps>(function ChatInput(p
     setInputTextState('')
   }, [])
 
+  const resetThread = useCallback<AiBotInputApi['resetThread']>(() => {
+    clearInput()
+    clearFiles()
+    setIsConfirmingReset(false)
+  }, [clearFiles, clearInput])
+
   const openFileDialog = useCallback(() => {
+    setIsConfirmingReset(false)
     fileInputRef.current?.click()
   }, [])
 
@@ -314,9 +396,10 @@ const ChatInput = forwardRef<AiBotInputApi, ChatInputProps>(function ChatInput(p
     () => ({
       setTextInput,
       addAttachments,
+      resetThread,
       sendMessage,
     }),
-    [setTextInput, addAttachments, sendMessage],
+    [setTextInput, addAttachments, resetThread, sendMessage],
   )
 
   // ============== Context value ==============
@@ -437,6 +520,84 @@ const ChatInput = forwardRef<AiBotInputApi, ChatInputProps>(function ChatInput(p
     e.target.value = ''
   }
 
+  const updateResetPopoverPosition = useCallback(() => {
+    if (!resetTriggerRef.current || !portalHost) return
+
+    const triggerRect = resetTriggerRef.current.getBoundingClientRect()
+    const hostRect = portalHost.getBoundingClientRect()
+    const popoverWidth = 280
+    const spacing = 10
+
+    const left = Math.min(
+      Math.max(triggerRect.left - hostRect.left - 4, 8),
+      Math.max(hostRect.width - popoverWidth - 8, 8),
+    )
+    const top = Math.max(triggerRect.top - hostRect.top - spacing, 8)
+    const arrowLeft = Math.min(
+      Math.max(triggerRect.left - hostRect.left + (triggerRect.width / 2) - left - 7, 16),
+      popoverWidth - 28,
+    )
+
+    setResetPopoverStyle({
+      left,
+      top,
+      ['--reset-confirm-arrow-left' as string]: `${arrowLeft}px`,
+    })
+  }, [portalHost])
+
+  useLayoutEffect(() => {
+    if (!isConfirmingReset) return
+    updateResetPopoverPosition()
+  }, [isConfirmingReset, updateResetPopoverPosition])
+
+  useEffect(() => {
+    if (!isConfirmingReset) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null
+      if (
+        resetConfirmRef.current?.contains(target) ||
+        resetTriggerRef.current?.contains(target)
+      ) {
+        return
+      }
+      setIsConfirmingReset(false)
+    }
+
+    const handleReposition = () => {
+      updateResetPopoverPosition()
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    window.addEventListener('resize', handleReposition)
+    window.addEventListener('scroll', handleReposition, true)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      window.removeEventListener('resize', handleReposition)
+      window.removeEventListener('scroll', handleReposition, true)
+    }
+  }, [isConfirmingReset, updateResetPopoverPosition])
+
+  const handleResetThread = useCallback(() => {
+    if (status === 'streaming' || isResettingThread || !canResetThread) {
+      return
+    }
+    setIsConfirmingReset(true)
+  }, [status, isResettingThread, canResetThread])
+
+  const cancelResetThread = useCallback(() => {
+    setIsConfirmingReset(false)
+  }, [])
+
+  const confirmResetThread = useCallback(() => {
+    if (status === 'streaming' || isResettingThread || !canResetThread) {
+      return
+    }
+    setIsConfirmingReset(false)
+    onResetThread()
+  }, [status, isResettingThread, canResetThread, onResetThread])
+
   // ============== Submit button config ==============
   const buttonVariant = isLoadingStatus ? 'destructive' : 'submit'
   const SubmitIcon = isLoadingStatus ? Loader2Icon : CornerDownLeftIcon
@@ -500,7 +661,21 @@ const ChatInput = forwardRef<AiBotInputApi, ChatInputProps>(function ChatInput(p
               {/* Left side: attachment tools */}
               <div className="flex items-center gap-1">
                 <InputGroupButton
+                  ref={resetTriggerRef}
                   type="button"
+                  title="新对话"
+                  className="cursor-pointer text-muted-foreground"
+                  disabled={status === 'streaming' || isResettingThread || !canResetThread}
+                  onClick={isConfirmingReset ? cancelResetThread : handleResetThread}
+                  style={{
+                    background: 'transparent',
+                  }}
+                >
+                  <Trash2Icon className="size-4" />
+                </InputGroupButton>
+                <InputGroupButton
+                  type="button"
+                  title="添加附件"
                   className="cursor-pointer text-muted-foreground"
                   onClick={openFileDialog}
                   style={{
@@ -603,6 +778,58 @@ const ChatInput = forwardRef<AiBotInputApi, ChatInputProps>(function ChatInput(p
           </InputGroup>
         </div>
       </div>
+      {isConfirmingReset && portalHost
+        ? createPortal(
+            <div
+              ref={resetConfirmRef}
+              style={{ ...styles.resetPopover, ...resetPopoverStyle }}
+              className="reset-confirm-popover"
+            >
+              <div
+                style={{
+                  ...styles.resetArrow,
+                  left: resetPopoverStyle['--reset-confirm-arrow-left' as keyof React.CSSProperties] as string | number | undefined,
+                }}
+              />
+              <p style={styles.resetTitle}>清空当前会话？</p>
+              <p style={styles.resetDescription}>
+                当前聊天记录会被清空，并开始一个新的空会话。
+              </p>
+              <div style={styles.resetActions}>
+                <button
+                  type="button"
+                  onClick={cancelResetThread}
+                  style={{
+                    ...styles.resetButton,
+                    ...styles.resetButtonSecondary,
+                  }}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  disabled={status === 'streaming' || isResettingThread || !canResetThread}
+                  onClick={confirmResetThread}
+                  style={{
+                    ...styles.resetButton,
+                    ...styles.resetButtonDanger,
+                    cursor:
+                      status === 'streaming' || isResettingThread || !canResetThread
+                        ? 'not-allowed'
+                        : 'pointer',
+                    opacity:
+                      status === 'streaming' || isResettingThread || !canResetThread
+                        ? 0.5
+                        : 1,
+                  }}
+                >
+                  确认清空
+                </button>
+              </div>
+            </div>,
+            portalHost,
+          )
+        : null}
     </PromptInputContext.Provider>
   )
 })

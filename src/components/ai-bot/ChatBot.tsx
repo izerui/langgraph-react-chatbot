@@ -259,6 +259,7 @@ const ChatBot = forwardRef<AiBotPublicApi, ChatBotProps>(function ChatBot(
   const [status, setStatus] = useState<ChatStatus>('ready')
   const [isLoading, setIsLoading] = useState(true)
   const [isRejoiningStream, setIsRejoiningStream] = useState(false)
+  const [isResettingThread, setIsResettingThread] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [models, setModels] = useState<ModelInfo[]>([])
@@ -282,6 +283,11 @@ const ChatBot = forwardRef<AiBotPublicApi, ChatBotProps>(function ChatBot(
     if (!isRejoiningStream) return messages
     return messages.filter((m) => m.type !== 'custom')
   }, [messages, isRejoiningStream])
+
+  const canResetThread = useMemo(
+    () => messages.length > 0 || !!threadId,
+    [messages.length, threadId]
+  )
 
   // -----------------------------------------------------------------------
   // Tool event dispatch
@@ -1208,6 +1214,62 @@ const ChatBot = forwardRef<AiBotPublicApi, ChatBotProps>(function ChatBot(
     [handleSubmit]
   )
 
+  const clearConversationState = useCallback(() => {
+    setMessages([])
+    messagesRef.current = []
+    setSuggestions([...suggestionsProp])
+    setInitialTodos([])
+    setTodoToolEvents([])
+    runIdRef.current = ''
+    setStatus('ready')
+  }, [suggestionsProp])
+
+  const handleResetThread = useCallback(async () => {
+    if (statusRef.current === 'streaming' || isResettingThread || !canResetThread) {
+      return
+    }
+
+    if (!threadIdRef.current) {
+      clearConversationState()
+      chatInputRef.current?.resetThread()
+      return
+    }
+
+    setIsResettingThread(true)
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/webapp/reset/${encodeURIComponent(threadIdRef.current)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+          },
+          body: JSON.stringify({
+            metadata: {
+              user_id: userId,
+            },
+          }),
+        }
+      )
+
+      const result = await response.json().catch(() => null)
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.err_message || `HTTP ${response.status}`)
+      }
+
+      clearConversationState()
+      chatInputRef.current?.resetThread()
+    } catch (error) {
+      console.error('Failed to reset thread:', error)
+      const errorMessage = error instanceof Error ? error.message : '未知错误'
+      window.alert(`清空当前对话失败：${errorMessage}`)
+    } finally {
+      setIsResettingThread(false)
+    }
+  }, [apiKey, apiUrl, canResetThread, clearConversationState, isResettingThread, userId])
+
   // -----------------------------------------------------------------------
   // renderCustom wrapper: handle generated_files internally
   // -----------------------------------------------------------------------
@@ -1244,11 +1306,14 @@ const ChatBot = forwardRef<AiBotPublicApi, ChatBotProps>(function ChatBot(
       addAttachments: (attachments) => {
         chatInputRef.current?.addAttachments(attachments)
       },
+      resetThread: async () => {
+        await handleResetThread()
+      },
       sendMessage: async () => {
         await chatInputRef.current?.sendMessage()
       },
     }),
-    []
+    [handleResetThread]
   )
 
   // -----------------------------------------------------------------------
@@ -1317,10 +1382,13 @@ const ChatBot = forwardRef<AiBotPublicApi, ChatBotProps>(function ChatBot(
             models={models}
             suggestions={suggestions}
             useWebSearch={useWebSearch}
+            canResetThread={canResetThread}
+            isResettingThread={isResettingThread}
             allowModelSwitch={allowModelSwitch}
             modelSelectorOpen={modelSelectorOpen}
             onSubmit={handleFormSubmit}
             onStop={handleStop}
+            onResetThread={handleResetThread}
             onSelectSuggestion={handleSuggestionClick}
             onCurrentModelChange={setCurrentModel}
             onUseWebSearchChange={setUseWebSearch}

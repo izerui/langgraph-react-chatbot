@@ -17,6 +17,7 @@ export type {
   CustomContent,
   MessageType,
   PromptInputAttachment,
+  PromptInputBase64Attachment,
   PromptInputFileAttachment,
   PromptInputFileUrlAttachment,
   PromptInputImageAttachment,

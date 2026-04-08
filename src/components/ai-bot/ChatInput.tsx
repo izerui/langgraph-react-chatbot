@@ -36,6 +36,12 @@ import {
   DropdownMenuItem,
 } from './ui/dropdown-menu'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from './ui/tooltip'
+import {
   CheckIcon,
   ChevronDownIcon,
   Loader2Icon,
@@ -659,33 +665,60 @@ const ChatInput = forwardRef<AiBotInputApi, ChatInputProps>(function ChatInput(p
             {/* Footer toolbar (PromptInputFooter) */}
             <InputGroupAddon align="block-end" className="justify-between gap-1">
               {/* Left side: attachment tools */}
-              <div className="flex items-center gap-1">
-                <InputGroupButton
-                  ref={resetTriggerRef}
-                  type="button"
-                  title="新对话"
-                  className="cursor-pointer text-muted-foreground"
-                  disabled={status === 'streaming' || isResettingThread || !canResetThread}
-                  onClick={isConfirmingReset ? cancelResetThread : handleResetThread}
-                  style={{
-                    background: 'transparent',
-                  }}
-                >
-                  <Trash2Icon className="size-4" />
-                </InputGroupButton>
-                <InputGroupButton
-                  type="button"
-                  title="添加附件"
-                  className="cursor-pointer text-muted-foreground"
-                  onClick={openFileDialog}
-                  style={{
-                    background: 'transparent',
-                  }}
-                >
-                  <PaperclipIcon className="size-4" />
-                </InputGroupButton>
-                {renderAttachmentTrigger?.({ addAttachments })}
-              </div>
+              <TooltipProvider>
+                <div className="flex items-center gap-1">
+                  <div className="relative">
+                    {!isConfirmingReset ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <InputGroupButton
+                            ref={resetTriggerRef}
+                            type="button"
+                            title="新对话"
+                            className="attachment-button cursor-pointer text-muted-foreground hover:bg-transparent hover:text-inherit focus:bg-transparent focus:text-inherit focus-visible:bg-transparent focus-visible:text-inherit"
+                            disabled={status === 'streaming' || isResettingThread || !canResetThread}
+                            onClick={handleResetThread}
+                          >
+                            <Trash2Icon className="size-4" />
+                          </InputGroupButton>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>清空当前对话</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <InputGroupButton
+                        ref={resetTriggerRef}
+                        type="button"
+                        title="新对话"
+                        className="attachment-button cursor-pointer text-muted-foreground hover:bg-transparent hover:text-inherit focus:bg-transparent focus:text-inherit focus-visible:bg-transparent focus-visible:text-inherit"
+                        disabled={status === 'streaming' || isResettingThread || !canResetThread}
+                        onClick={cancelResetThread}
+                      >
+                        <Trash2Icon className="size-4" />
+                      </InputGroupButton>
+                    )}
+                  </div>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <InputGroupButton
+                        type="button"
+                        title="添加附件"
+                        className="attachment-button cursor-pointer text-muted-foreground hover:bg-transparent hover:text-inherit focus:bg-transparent focus:text-inherit focus-visible:bg-transparent focus-visible:text-inherit"
+                        onClick={openFileDialog}
+                      >
+                        <PaperclipIcon className="size-4" />
+                      </InputGroupButton>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>添加附件</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {renderAttachmentTrigger?.({ addAttachments })}
+                </div>
+              </TooltipProvider>
 
               {/* Right side: model selector + submit */}
               <div className="flex items-center gap-1">
@@ -799,9 +832,18 @@ const ChatInput = forwardRef<AiBotInputApi, ChatInputProps>(function ChatInput(p
                 <button
                   type="button"
                   onClick={cancelResetThread}
+                  className="transition-colors"
                   style={{
                     ...styles.resetButton,
                     ...styles.resetButtonSecondary,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--ai-control-hover-bg)'
+                    e.currentTarget.style.color = 'var(--ai-control-hover-text)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--ai-control-muted)'
                   }}
                 >
                   取消
@@ -821,6 +863,17 @@ const ChatInput = forwardRef<AiBotInputApi, ChatInputProps>(function ChatInput(p
                       status === 'streaming' || isResettingThread || !canResetThread
                         ? 0.5
                         : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (status === 'streaming' || isResettingThread || !canResetThread) return
+                    e.currentTarget.style.transform = 'translateY(-1px)'
+                    e.currentTarget.style.boxShadow =
+                      '0 12px 24px color-mix(in srgb, var(--destructive) 28%, transparent)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'none'
+                    e.currentTarget.style.boxShadow =
+                      '0 8px 18px color-mix(in srgb, var(--destructive) 22%, transparent)'
                   }}
                 >
                   确认清空

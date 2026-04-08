@@ -10,6 +10,7 @@ export type {
   AttachmentFile,
   AttachmentTriggerSlotProps,
   PromptInputAttachment,
+  PromptInputBase64Attachment,
   PromptInputFileAttachment,
   PromptInputFileUrlAttachment,
   PromptInputImageAttachment,

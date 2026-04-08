@@ -27,7 +27,7 @@ export function ChatHeader({
             className="action-btn"
             onClick={onToggleMaximize}
             type="button"
-            title={isMaximized ? 'Restore' : 'Maximize'}
+            title={isMaximized ? '还原' : '最大化'}
           >
             {isMaximized ? (
               <Minimize2 className="size-4" />
@@ -39,7 +39,7 @@ export function ChatHeader({
             className="action-btn"
             onClick={onClose}
             type="button"
-            title="Close"
+            title="关闭"
           >
             <X className="size-4" />
           </button>
